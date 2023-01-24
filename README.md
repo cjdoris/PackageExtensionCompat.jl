@@ -1,9 +1,12 @@
 # PackageExtensionTools
 
-Julia introduced **package extensions** in v1.9. This package makes these extensions
-backwards-compatible to earlier Julia versions, with zero overhead on new versions.
+Julia introduced
+[package extensions](https://docs.julialang.org/en/v1.10-dev/manual/code-loading/#man-extensions)
+in v1.9. This package makes these extensions backwards-compatible to earlier Julia versions,
+with zero overhead on new versions.
 
-Internally, this uses [Requires.jl](https://github.com/JuliaPackaging/Requires.jl)
+Internally, this uses
+[Requires.jl](https://github.com/JuliaPackaging/Requires.jl)
 on earlier versions.
 
 ## Usage
