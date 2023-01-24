@@ -1,0 +1,12 @@
+name = "PackageExtensionTools"
+uuid = "65ce6f38-6b18-4e1d-a461-8949797d7930"
+authors = ["Christopher Doris <github.com/cjdoris>"]
+version = "0.1.0"
+
+[deps]
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+
+[compat]
+Requires = "1.0"
+TOML = "1.0"
