@@ -1,6 +1,6 @@
 module TestPackage
 
-using PackageExtensionTools
+using PackageExtensionCompat
 
 function __init__()
     @require_extensions

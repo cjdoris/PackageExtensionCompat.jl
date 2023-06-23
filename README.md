@@ -1,4 +1,4 @@
-# PackageExtensionTools
+# PackageExtensionCompat
 
 Julia introduced
 [package extensions](https://docs.julialang.org/en/v1.10-dev/manual/code-loading/#man-extensions)
@@ -16,7 +16,7 @@ Supposing you have a package called `Foo`:
 1. Set up package extensions for `Foo` as usual. This means adding `[weakdeps]` and
    `[extensions]` to `Project.toml` and adding extension code to `ext/`.
 
-2. Add `PackageExtensionTools` as a dependency to `Foo`.
+2. Add `PackageExtensionCompat` as a dependency to `Foo`.
 
 3. Add the following code to `src/Foo.jl`:
    ```julia

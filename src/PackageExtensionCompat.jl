@@ -1,4 +1,4 @@
-module PackageExtensionTools
+module PackageExtensionCompat
 
 export @require_extensions
 
@@ -72,4 +72,4 @@ else
     end
 end
 
-end # module PackageExtensionTools
+end # module PackageExtensionCompat

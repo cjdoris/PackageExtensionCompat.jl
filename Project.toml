@@ -1,4 +1,4 @@
-name = "PackageExtensionTools"
+name = "PackageExtensionCompat"
 uuid = "65ce6f38-6b18-4e1d-a461-8949797d7930"
 authors = ["Christopher Doris <github.com/cjdoris>"]
 version = "0.1.0"
