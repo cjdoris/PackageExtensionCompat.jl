@@ -13,10 +13,21 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
             return ex
         end
         # replace "using Foo" with "using ..Foo" for any Foo in ms
-        is_import = ex.head in (:using, :import)
-        for (j, ex2) in pairs(ex.args)
-            if ex2 isa Expr
-                ex.args[j] = is_import ? _mapexpr_import_arg(ms, ex2) : _mapexpr(ms, ex2)
+        if ex.head in (:using, :import)
+            # separate into separate import statements, because Julia 1.2 and 1.3 does not
+            # write string(:(import ..Foo, ..Bar)) correctly
+            ex = Expr(
+                :block,
+                [
+                    Expr(ex.head, ex2 isa Expr ? _mapexpr_import_arg(ms, ex2) : ex2)
+                    for ex2 in ex.args
+                ]...
+            )
+        else
+            for (j, ex2) in pairs(ex.args)
+                if ex2 isa Expr
+                    ex.args[j] = _mapexpr(ms, ex2)
+                end
             end
         end
         ex
