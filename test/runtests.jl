@@ -48,124 +48,155 @@ function make_package(dir; name=nothing, uuid=nothing, src="", deps=[], weakdeps
     (name=name, uuid=uuid, path=rootpath)
 end
 
-function test_extension(; extsrc)
-    mktempdir() do dir
-        # a secret value embedded into the extension which can only be recovered if the
-        # extension is loaded correctly
-        secret = rand(Int)
-        # an empty package, which exists just to trigger loading of an extension
-        pkg1 = make_package(dir;
-            src = """
-            const SECRET = $secret
-            """
-        )
-        # a package with an extension depending on the previous package
-        pkg2 = make_package(dir;
-            deps = [
-                (name="PackageExtensionCompat", uuid="65ce6f38-6b18-4e1d-a461-8949797d7930"),
-            ],
-            src = """
-            using PackageExtensionCompat
-            function __init__()
-                @require_extensions
-            end
-            function secret end
-            """,
-            weakdeps = [pkg1],
-            extensions = [
-                (
-                    name = "TestExt",
-                    deps = [pkg1.name],
-                    src = replace(replace(extsrc, "PKG1NAME" => pkg1.name), "PKG2NAME" => "PKGNAME"),
-                )
-            ]
-        )
-        # add these packages to the project
-        Pkg.develop([
-            Pkg.PackageSpec(path=pkg1.path),
-            Pkg.PackageSpec(path=pkg2.path),
-        ])
-        # load the second package and test that the extension is not loaded
-        m2 = Base.require(Base.PkgId(UUID(pkg2.uuid), pkg2.name))
-        @test length(methods(m2.secret)) == 0
-        # load the first package and test that the extension is loaded
-        m1 = Base.require(Base.PkgId(UUID(pkg1.uuid), pkg1.name))
-        @test length(methods(m2.secret)) == 1
-        @test Base.invokelatest(m2.secret) === secret
-        # remove these packages
-        Pkg.rm([
-            Pkg.PackageSpec(name=pkg1.name),
-            Pkg.PackageSpec(name=pkg2.name),
-        ])
-    end
+function test_extension(; dir, slug, extsrc)
+    # a secret value embedded into the extension which can only be recovered if the
+    # extension is loaded correctly
+    secret = rand(Int)
+    # an empty package, which exists just to trigger loading of an extension
+    pkg1 = make_package(dir;
+        name = "PackageExtensionCompat_Test_$(slug)_Trigger",
+        src = """
+        const SECRET = $secret
+        """
+    )
+    # a package with an extension depending on the previous package
+    pkg2 = make_package(dir;
+        name = "PackageExtensionCompat_Test_$(slug)_Main",
+        deps = [
+            (name="PackageExtensionCompat", uuid="65ce6f38-6b18-4e1d-a461-8949797d7930"),
+        ],
+        src = """
+        using PackageExtensionCompat
+        function __init__()
+            @require_extensions
+        end
+        function secret end
+        """,
+        weakdeps = [pkg1],
+        extensions = [
+            (
+                name = "TestExt",
+                deps = [pkg1.name],
+                src = replace(replace(extsrc, "PKG1NAME" => pkg1.name), "PKG2NAME" => "PKGNAME"),
+            )
+        ]
+    )
+    # add these packages to the project
+    Pkg.develop([
+        Pkg.PackageSpec(path=pkg1.path),
+        Pkg.PackageSpec(path=pkg2.path),
+    ])
+    # load the second package and test that the extension is not loaded
+    m2 = Base.require(Base.PkgId(UUID(pkg2.uuid), pkg2.name))
+    @test length(methods(m2.secret)) == 0
+    # load the first package and test that the extension is loaded
+    m1 = Base.require(Base.PkgId(UUID(pkg1.uuid), pkg1.name))
+    @test length(methods(m2.secret)) == 1
+    @test Base.invokelatest(m2.secret) === secret
+    # remove these packages
+    Pkg.rm([
+        Pkg.PackageSpec(name=pkg1.name),
+        Pkg.PackageSpec(name=pkg2.name),
+    ])
 end
 
 @testset "PackageExtensionCompat" begin
 
-    @testset "using" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME, PKG1NAME
-            PKG2NAME.secret() = PKG1NAME.SECRET
-            """
-        )
-    end
+    mktempdir() do dir
 
-    @testset "using-get" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME
-            using PKG1NAME: SECRET as THE_SECRET
-            PKG2NAME.secret() = THE_SECRET
-            """
-        )
-    end
+        @testset "using" begin
+            test_extension(
+                dir = dir,
+                slug = "1",
+                extsrc = """
+                using PKG2NAME, PKG1NAME
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                """
+            )
+        end
 
-    @testset "import" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME
-            import PKG1NAME
-            PKG2NAME.secret() = PKG1NAME.SECRET
-            """
-        )
-    end
+        @testset "using-get" begin
+            if Base.VERSION ≥ v"1.6"
+                test_extension(
+                    dir = dir,
+                    slug = "2",
+                    extsrc = """
+                    using PKG2NAME
+                    using PKG1NAME: SECRET as THE_SECRET
+                    PKG2NAME.secret() = THE_SECRET
+                    """
+                )
+            else
+                test_extension(
+                    dir = dir,
+                    slug = "2",
+                    extsrc = """
+                    using PKG2NAME
+                    using PKG1NAME: SECRET
+                    const THE_SECRET = SECRET
+                    PKG2NAME.secret() = THE_SECRET
+                    """
+                )
+            end
+        end
 
-    @testset "import-as" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME
-            import PKG1NAME as FOO
-            PKG2NAME.secret() = FOO.SECRET
-            """
-        )
-    end
+        @testset "import" begin
+            test_extension(
+                dir = dir,
+                slug = "3",
+                extsrc = """
+                using PKG2NAME
+                import PKG1NAME
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                """
+            )
+        end
 
-    @testset "nested-using" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME
-            @static if 1 < 2
-                if 3 < 4
-                    using PKG1NAME
+        @testset "import-as" begin
+            if Base.VERSION ≥ v"1.6"
+                test_extension(
+                    dir = dir,
+                    slug = "4",
+                    extsrc = """
+                    using PKG2NAME
+                    import PKG1NAME as FOO
+                    PKG2NAME.secret() = FOO.SECRET
+                    """
+                )
+            end
+        end
+
+        @testset "nested-using" begin
+            test_extension(
+                dir = dir,
+                slug = "5",
+                extsrc = """
+                using PKG2NAME
+                @static if 1 < 2
+                    if 3 < 4
+                        using PKG1NAME
+                    end
                 end
-            end
-            PKG2NAME.secret() = PKG1NAME.SECRET
-            """
-        )
-    end
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                """
+            )
+        end
 
-    @testset "__init__" begin
-        test_extension(
-            extsrc = """
-            using PKG2NAME, PKG1NAME
-            const SECRET = Ref{Union{Nothing,Int}}(nothing)
-            function __init__()
-                SECRET[] = PKG1NAME.SECRET
-            end
-            PKG2NAME.secret() = SECRET[]::Int
-            """
-        )
+        @testset "__init__" begin
+            test_extension(
+                dir = dir,
+                slug = "6",
+                extsrc = """
+                using PKG2NAME, PKG1NAME
+                const SECRET = Ref{Union{Nothing,Int}}(nothing)
+                function __init__()
+                    SECRET[] = PKG1NAME.SECRET
+                end
+                PKG2NAME.secret() = SECRET[]::Int
+                """
+            )
+        end
+
     end
 
 end
