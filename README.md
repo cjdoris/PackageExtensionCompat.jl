@@ -1,13 +1,15 @@
 # PackageExtensionCompat
 
 Julia introduced
-[package extensions](https://docs.julialang.org/en/v1.10-dev/manual/code-loading/#man-extensions)
+[package extensions](https://pkgdocs.julialang.org/v1.9/creating-packages/#Conditional-loading-of-code-in-packages-(Extensions))
 in v1.9. This package makes these extensions backwards-compatible to earlier Julia versions,
 with zero overhead on new versions.
 
 Internally, this uses
 [Requires.jl](https://github.com/JuliaPackaging/Requires.jl)
-on earlier versions.
+on earlier versions, automating
+[this strategy](https://pkgdocs.julialang.org/v1.9/creating-packages/#Requires.jl)
+in the Pkg.jl docs.
 
 ## Usage
 
@@ -20,7 +22,7 @@ Supposing you have a package called `Foo`:
 
 3. Add the following code to `src/Foo.jl`:
    ```julia
-   using PackageExensionTools
+   using PackageExtensionCompat
    function __init__()
        @require_extensions
    end
