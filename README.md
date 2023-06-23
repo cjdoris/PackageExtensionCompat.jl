@@ -11,6 +11,8 @@ on earlier versions, automating
 [this strategy](https://pkgdocs.julialang.org/v1.9/creating-packages/#Requires.jl)
 in the Pkg.jl docs.
 
+Supports all versions of Julia from 1.0 upwards.
+
 ## Usage
 
 Supposing you have a package called `Foo`:
