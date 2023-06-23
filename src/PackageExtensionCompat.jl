@@ -96,14 +96,14 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
             extpath === nothing && error("Expecting ext/$name.jl or ext/$name/$name.jl in $rootdir for extension $name.")
             # rewrite the extension code
             # TODO: there may be other files to copy/rewrite
-            __module__.eval(:($include_dependency($extpath)))
+            __module__.include_dependency(extpath)
             extpath2 = joinpath(rootdir, "ext_compat", relpath(extpath, joinpath(rootdir, "ext")))
             mkpath(dirname(extpath2))
             code = Meta.parse(read(extpath, String))
             code = _mapexpr(map(Symbol, pkgs), code)
             write(extpath2, string(code))
             # include the extension code
-            expr = :(include($extpath2))
+            expr = :($(__module__.include)($extpath2))
             for pkg in pkgs
                 uuid = get(get(Dict, toml, "weakdeps"), pkg, nothing)
                 uuid === nothing && error("Expecting a weakdep for $pkg in $tomlpath.")
