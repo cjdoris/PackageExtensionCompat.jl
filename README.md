@@ -29,3 +29,9 @@ Supposing you have a package called `Foo`:
    ```
 
 That's it! Your package extensions will now be loaded as expected on any Julia version!
+
+## Example
+
+See
+[the example folder](https://github.com/cjdoris/PackageExtensionCompat.jl/tree/main/example)
+for an example package using this functionality.
