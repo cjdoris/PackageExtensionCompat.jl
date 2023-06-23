@@ -7,8 +7,6 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
 @static if !HAS_NATIVE_EXTENSIONS
     using Requires, TOML
 
-    _mapexpr(ms::Vector{Symbol}) = (ex::Expr) -> _mapexpr(ms, ex)
-
     function _mapexpr(ms::Vector{Symbol}, ex::Expr)
         # skip some top-level constructs
         if ex.head in (:struct, :function, :(=), :macro, :const, :call)
@@ -73,20 +71,28 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
         extensions = get(toml, "extensions", [])
         isempty(extensions) && error("no extensions defined in $tomlpath")
         exprs = []
+        rm(joinpath(rootdir, "ext_compat"), force=true, recursive=true)
         for (name, pkgs) in extensions
             if pkgs isa String
                 pkgs = [pkgs]
             end
-            mapexpr = _mapexpr(map(Symbol, pkgs))
             extpath = nothing
-            for file in ["ext/$name.jl", "ext/$name/$name.jl"]
-                path = joinpath(rootdir, file)
+            for path in [joinpath(rootdir, "ext", "$name.jl"), joinpath(rootdir, "ext", "$name", "$name.jl")]
                 if isfile(path)
                     extpath = path
                 end
             end
             extpath === nothing && error("Expecting ext/$name.jl or ext/$name/$name.jl in $rootdir for extension $name.")
-            expr = :(include($mapexpr, $extpath))
+            # rewrite the extension code
+            # TODO: there may be other files to copy/rewrite
+            __module__.eval(:($include_dependency($extpath)))
+            extpath2 = joinpath(rootdir, "ext_compat", relpath(extpath, joinpath(rootdir, "ext")))
+            mkpath(dirname(extpath2))
+            code = Meta.parse(read(extpath, String))
+            code = _mapexpr(map(Symbol, pkgs), code)
+            write(extpath2, string(code))
+            # include the extension code
+            expr = :(include($extpath2))
             for pkg in pkgs
                 uuid = get(get(Dict, toml, "weakdeps"), pkg, nothing)
                 uuid === nothing && error("Expecting a weakdep for $pkg in $tomlpath.")
