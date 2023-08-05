@@ -197,6 +197,32 @@ end
             )
         end
 
+        @testset "anonymous-functions" begin
+            test_extension(
+                dir = dir,
+                slug = "7",
+                extsrc = """
+                using PKG2NAME, PKG1NAME
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                f = (x...) -> (x, x)
+                """
+            )
+        end
+
+        @testset "eval-interpolate-function-name" begin
+            test_extension(
+                dir = dir,
+                slug = "8",
+                extsrc = """
+                using PKG2NAME, PKG1NAME
+                funcname = :secret
+                @eval function PKG2NAME.\$(funcname)()
+                    PKG1NAME.SECRET
+                end
+                """
+            )
+        end
+
     end
 
 end
