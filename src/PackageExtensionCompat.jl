@@ -7,63 +7,37 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
 @static if !HAS_NATIVE_EXTENSIONS
     using Requires, TOML
 
-    function _mapexpr(ms::Vector{Symbol}, ex::Expr)
-        # skip some top-level constructs
-        if ex.head in (:struct, :function, :(=), :macro, :const, :call)
-            return ex
-        end
-        # replace "using Foo" with "using ..Foo" for any Foo in ms
-        if ex.head in (:using, :import)
-            # separate into separate import statements, because Julia 1.2 and 1.3 does not
-            # write string(:(import ..Foo, ..Bar)) correctly
-            ex = Expr(
-                :block,
-                [
-                    Expr(ex.head, ex2 isa Expr ? _mapexpr_import_arg(ms, ex2) : ex2)
-                    for ex2 in ex.args
-                ]...
-            )
-        else
-            for (j, ex2) in pairs(ex.args)
-                if ex2 isa Expr
-                    ex.args[j] = _mapexpr(ms, ex2)
-                end
+    function rewrite_import(str, pkgs)
+        parts = split(strip(str))
+        if length(parts) == 1 || (length(parts) ≥ 2 && parts[2] == "as")
+            if parts[1] ∈ pkgs
+                parts[1] = string("..", parts[1])
             end
         end
-        ex
+        join(parts, " ")
     end
 
-    function _mapexpr_import_arg(ms::Vector{Symbol}, ex::Expr)
-        if ex.head == :.
-            # import Foo
-            # import Foo.Bar
-            # NOT import .Foo
-            # NOT import ..Foo
-            if length(ex.args) ≥ 1
-                m = ex.args[1]
-                if m isa Symbol && m != :. && m in ms
-                    # import Foo -> import ..Foo
-                    pushfirst!(ex.args, :., :.)
-                end
-            end
-        elseif ex.head == :as
-            # import ... as Foo2
-            if length(ex.args) == 2
-                m = ex.args[1]
-                if m isa Expr
-                    ex.args[1] == _mapexpr_import_arg(ms, m)
-                end
-            end
-        elseif ex.head == :(:)
-            # import ...: foo, bar, baz
-            if length(ex.args) ≥ 1
-                m = ex.args[1]
-                if m isa Expr
-                    ex.args[1] = _mapexpr_import_arg(ms, m)
-                end
-            end
+    function rewrite_imports(str, pkgs)
+        parts = split(str, ",")
+        parts = map(part -> rewrite_import(part, pkgs), parts)
+        join(parts, ", ")
+    end
+
+    function rewrite_line(line, pkgs)
+        pat = r"^(\s*(using|import)\s+)([^;:#$]*[^;:#$\s])(.*)$"
+        m = match(pat, line)
+        if m === nothing
+            line
+        else
+            string(m.captures[1], rewrite_imports(m.captures[3], pkgs), m.captures[4])
         end
-        return ex
+    end
+
+    function rewrite(srcfile, trgfile, pkgs)
+        lines = readlines(srcfile)
+        lines = map(line -> rewrite_line(line, pkgs), lines)
+        code = join(lines, "\n")
+        write(trgfile, code)
     end
 
     macro require_extensions()
@@ -99,9 +73,7 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
             __module__.include_dependency(extpath)
             extpath2 = joinpath(rootdir, "ext_compat", relpath(extpath, joinpath(rootdir, "ext")))
             mkpath(dirname(extpath2))
-            code = Meta.parse(read(extpath, String))
-            code = _mapexpr(map(Symbol, pkgs), code)
-            write(extpath2, string(code))
+            rewrite(extpath, extpath2, pkgs)
             # include the extension code
             expr = :($(__module__.include)($extpath2))
             for pkg in pkgs
