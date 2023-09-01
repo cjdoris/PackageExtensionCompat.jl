@@ -7,6 +7,22 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
 @static if !HAS_NATIVE_EXTENSIONS
     using MacroTools, Requires, TOML
 
+    @static if hasmethod(Base.include, Tuple{Function, Module, String})
+        function _include(mapexpr::Function, m::Module, path::AbstractString)
+            Base.include(mapexpr, m, path)
+        end
+    else
+        function _include(mapexpr::Function, m::Module, path::AbstractString)
+            str = read(path, String)
+            pos = 1
+            while true
+                (expr, pos) = Meta.parse(str, pos; raise=false)
+                expr !== nothing || break
+                m.eval(mapexpr(expr))
+            end
+        end
+    end
+
     rewrite(pkgs) = Base.Fix2(rewrite, pkgs)
 
     function rewrite(expr, pkgs)
@@ -58,7 +74,7 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
             extpath === nothing && error("Expecting ext/$name.jl or ext/$name/$name.jl in $rootdir for extension $name.")
             __module__.include_dependency(extpath)
             # include and rewrite the extension code
-            expr = :($(__module__.include)($(rewrite(pkgs)), $extpath))
+            expr = :($(_include)($(rewrite(pkgs)), $__module__, $extpath))
             for pkg in pkgs
                 uuid = get(get(Dict, toml, "weakdeps"), pkg, nothing)
                 uuid === nothing && error("Expecting a weakdep for $pkg in $tomlpath.")
