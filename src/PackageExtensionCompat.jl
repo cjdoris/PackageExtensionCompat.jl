@@ -35,7 +35,7 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
     end
 
     function rewrite_block(block, top_pkg::Module, pkgs)
-        if Meta.isexpr(block, :call) && block.args[1] == :include
+        if Meta.isexpr(block, :call) && length(block.args) == 2 && block.args[1] == :include
             # inner include, rewrite it recursively
             local_mod = Expr(:macrocall, Symbol("@__MODULE__"), @__LINE__)
             Expr(:call, _include, rewrite(top_pkg, pkgs), local_mod, block.args[2])
