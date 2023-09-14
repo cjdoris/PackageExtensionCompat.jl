@@ -5,7 +5,7 @@ export @require_extensions
 const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
 
 @static if !HAS_NATIVE_EXTENSIONS
-    using MacroTools, Requires, TOML
+    using Requires, TOML
 
     @static if hasmethod(Base.include, Tuple{Function, Module, String})
         function _include(mapexpr::Function, m::Module, path::AbstractString)
@@ -26,23 +26,27 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
         end
     end
 
-    function rewrite(toplevel::Module, pkgs)
-        Base.Fix1(MacroTools.postwalk, block -> rewrite_block(block, toplevel, pkgs))
+    # a simplified variant of MacroTools.postwalk
+    postwalk(f, x) = f(x)
+    postwalk(f, x::Expr) = f(Expr(x.head, postwalk.(f, x.args)...))
+
+    function rewrite(top_pkg::Module, pkgs)
+        Base.Fix1(postwalk, block -> rewrite_block(block, top_pkg, pkgs))
     end
 
-    function rewrite_block(block, toplevel::Module, pkgs)
+    function rewrite_block(block, top_pkg::Module, pkgs)
         if Meta.isexpr(block, :call) && block.args[1] == :include
             # inner include, rewrite it recursively
             local_mod = Expr(:macrocall, Symbol("@__MODULE__"), @__LINE__)
-            Expr(:call, _include, rewrite(toplevel, pkgs), local_mod, block.args[2])
+            Expr(:call, _include, rewrite(top_pkg, pkgs), local_mod, block.args[2])
         elseif Meta.isexpr(block, [:using, :import])
             # using or import block, replace references to pkgs
             imports = map(block.args) do use
                 Meta.isexpr(use, [:(:), :as]) ?
                     Expr(use.head,
-                         rewrite_use(use.args[1], toplevel, pkgs),
+                         rewrite_use(use.args[1], top_pkg, pkgs),
                          use.args[2:end]...) :
-                    rewrite_use(use, toplevel, pkgs)
+                    rewrite_use(use, top_pkg, pkgs)
             end
             Expr(block.head, imports...)
         else
@@ -51,9 +55,15 @@ const HAS_NATIVE_EXTENSIONS = isdefined(Base, :get_extension)
         end
     end
 
-    function rewrite_use(use::Expr, toplevel::Module, pkgs)::Expr
+    function rewrite_use(use::Expr, top_pkg::Module, pkgs)::Expr
         @assert Meta.isexpr(use, :.)
-        string(use.args[1]) ∈ pkgs ? Expr(:., nameof(toplevel), use.args...) : use
+        if string(use.args[1]) ∈ pkgs
+            # rewrite `using/import WeakDep` as `using/import TopPkg.WeakDep`
+            Expr(:., nameof(top_pkg), use.args...)
+        else
+            # leave every other package import alone
+            use
+        end
     end
 
     macro require_extensions()
