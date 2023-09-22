@@ -1,6 +1,6 @@
 using Test, Pkg, Random, UUIDs, PackageExtensionCompat
 
-function make_package(dir; name=nothing, uuid=nothing, src="", deps=[], weakdeps=[], extensions=[])
+function make_package(dir; name=nothing, uuid=nothing, src="", deps=[], weakdeps=[], extensions=[], includes=[])
     if name === nothing
         name = "TestPackage_$(randstring())"
     end
@@ -36,7 +36,7 @@ function make_package(dir; name=nothing, uuid=nothing, src="", deps=[], weakdeps
     end
     extpath = joinpath(rootpath, "ext")
     mkpath(extpath)
-    for ext in extensions
+    for ext in [extensions; includes]
         open(joinpath(extpath, "$(ext.name).jl"), "w") do io
             print(io, """
             module $(ext.name)
@@ -48,7 +48,7 @@ function make_package(dir; name=nothing, uuid=nothing, src="", deps=[], weakdeps
     (name=name, uuid=uuid, path=rootpath)
 end
 
-function test_extension(; dir, slug, extsrc)
+function test_extension(; dir, slug, extsrc, incsrc = nothing)
     # a secret value embedded into the extension which can only be recovered if the
     # extension is loaded correctly
     secret = rand(Int)
@@ -78,6 +78,12 @@ function test_extension(; dir, slug, extsrc)
                 name = "TestExt",
                 deps = [pkg1.name],
                 src = replace(replace(extsrc, "PKG1NAME" => pkg1.name), "PKG2NAME" => "PKGNAME"),
+            )
+        ],
+        includes = incsrc === nothing ? [] : [
+            (
+                name = "TestExtSub",
+                src = replace(replace(incsrc, "PKG1NAME" => pkg1.name), "PKG2NAME" => "PKGNAME"),
             )
         ]
     )
@@ -223,6 +229,33 @@ end
             )
         end
 
+        @testset "submodule" begin
+            test_extension(
+                dir = dir,
+                slug = "9",
+                extsrc = """
+                module SubMod
+                using PKG2NAME, PKG1NAME
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                end
+                """
+            )
+        end
+
+        @testset "inner-include" begin
+            test_extension(
+                dir = dir,
+                slug = "10",
+                extsrc = """
+                include("TestExtSub.jl")
+                @assert TestExtSub isa Module
+                """,
+                incsrc = """
+                using PKG2NAME, PKG1NAME
+                PKG2NAME.secret() = PKG1NAME.SECRET
+                """
+            )
+        end
     end
 
 end

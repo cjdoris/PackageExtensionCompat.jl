@@ -1,7 +1,7 @@
 name = "PackageExtensionCompat"
 uuid = "65ce6f38-6b18-4e1d-a461-8949797d7930"
 authors = ["Christopher Doris <github.com/cjdoris>"]
-version = "1.0.1"
+version = "1.0.2"
 
 [deps]
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
