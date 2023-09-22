@@ -1,5 +1,7 @@
 # PackageExtensionCompat
 
+[![Tests](https://github.com/cjdoris/PackageExtensionCompat.jl/actions/workflows/tests.yml/badge.svg)](https://github.com/cjdoris/PackageExtensionCompat.jl/actions/workflows/tests.yml)
+
 Julia introduced
 [package extensions](https://pkgdocs.julialang.org/v1.9/creating-packages/#Conditional-loading-of-code-in-packages-(Extensions))
 in v1.9. This package makes these extensions backwards-compatible to earlier Julia versions,
