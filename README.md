@@ -1,6 +1,9 @@
 # PackageExtensionCompat
 
+[![Project Status: Unsupported – The project has reached a stable, usable state but the author(s) have ceased all work on it. A new maintainer may be desired.](https://www.repostatus.org/badges/latest/unsupported.svg)](https://www.repostatus.org/#unsupported)
 [![Tests](https://github.com/cjdoris/PackageExtensionCompat.jl/actions/workflows/tests.yml/badge.svg)](https://github.com/cjdoris/PackageExtensionCompat.jl/actions/workflows/tests.yml)
+
+**Note: This package is now unsupported because it is a no-op on Julia 1.9 and later, and older versions are no longer supported.**
 
 Julia introduced
 [package extensions](https://pkgdocs.julialang.org/v1.9/creating-packages/#Conditional-loading-of-code-in-packages-(Extensions))
